@@ -1,0 +1,343 @@
+:root {
+    --bg: #FFFFFF;
+    --text: #1D1D1F;
+    --text-secondary: #86868B;
+    --accent: #0066CC;
+    --surface: #F5F5F7;
+    --border: rgba(0, 0, 0, 0.1);
+    --overlay: rgba(0, 0, 0, 0.3);
+    
+    /* Font families */
+    --font-en: 'Quicksand', -apple-system, BlinkMacSystemFont, sans-serif;
+    --font-fa: 'Vazirmatn', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+    font-family: var(--font-en);
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    letter-spacing: -0.011em;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+}
+
+.workspace {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.5rem;
+    margin: 1rem 0;
+}
+
+.translation-panel {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.lang-selector {
+    margin-bottom: 0.75rem;
+}
+
+.tone-selector {
+    display: flex;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.tone-selector select {
+    flex: 1;
+    min-width: 0;
+}
+
+select {
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    font-size: 0.9375rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16'%3E%3Cpath fill='%236E6E73' d='M8 10L4 6h8z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.875rem center;
+    padding-right: 2.5rem;
+    font-family: var(--font-en);
+}
+
+select option {
+    padding: 0.5rem;
+    font-family: var(--font-en);
+}
+
+textarea {
+    width: 100%;
+    height: 240px;
+    padding: 0.875rem;
+    font-size: 0.9375rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+    resize: none;
+    line-height: 1.5;
+}
+
+/* Font auto-switching based on language */
+textarea.font-auto[dir="rtl"],
+textarea.font-auto[lang="fa"],
+textarea.font-auto[lang="ar"] {
+    font-family: var(--font-fa);
+}
+
+textarea.font-auto:not([dir="rtl"]):not([lang="fa"]):not([lang="ar"]) {
+    font-family: var(--font-en);
+}
+
+textarea:focus {
+    outline: none;
+}
+
+textarea::placeholder {
+    color: var(--text-secondary);
+}
+
+.detected-info {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg);
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    display: flex;
+    gap: 1rem;
+}
+
+.detected-info strong {
+    color: var(--text);
+    font-weight: 500;
+}
+
+.detected-info.hidden {
+    display: none;
+}
+
+.controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0;
+}
+
+button {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.625rem 1.25rem;
+    border-radius: 980px;
+    font-size: 0.9375rem;
+    cursor: pointer;
+    min-width: 100px;
+    letter-spacing: -0.011em;
+    font-family: var(--font-en);
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.icon-btn {
+    background: var(--surface);
+    color: var(--text);
+    padding: 0.625rem;
+    width: 36px;
+    min-width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.icon-btn i {
+    font-size: 0.9375rem;
+}
+
+#swap-languages {
+    background: var(--surface);
+    color: var(--text);
+    padding: 0.625rem;
+    width: 36px;
+    min-width: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#swap-languages i {
+    font-size: 0.9375rem;
+}
+
+.api-key-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--overlay);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.api-key-modal.hidden {
+    display: none;
+}
+
+.modal-content {
+    background: var(--bg);
+    padding: 2rem;
+    border-radius: 16px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+}
+
+.modal-content h2 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+.modal-content p {
+    color: var(--text-secondary);
+    font-size: 0.9375rem;
+    margin-bottom: 1.5rem;
+}
+
+.input-group {
+    position: relative;
+    margin-bottom: 1.5rem;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.75rem 2.5rem 0.75rem 0.875rem;
+    font-size: 0.9375rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-family: var(--font-en);
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.input-group button {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    padding: 0.25rem;
+    min-width: auto;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+}
+
+.input-group button i {
+    font-size: 0.9375rem;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: center;
+}
+
+.modal-actions button {
+    width: 100%;
+}
+
+.loader {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--accent);
+    border-bottom-color: transparent;
+    border-radius: 50%;
+    display: inline-block;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    margin-top: -9px;
+    margin-left: -9px;
+    animation: rotation 0.8s linear infinite;
+}
+
+@keyframes rotation {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.hidden {
+    display: none;
+}
+
+/* RTL Support */
+[dir="rtl"] {
+    font-family: var(--font-fa);
+    text-align: right;
+}
+
+[dir="rtl"] select {
+    background-position: left 0.875rem center;
+    padding-right: 0.875rem;
+    padding-left: 2.5rem;
+}
+
+@media (max-width: 768px) {
+    .container {
+        padding: 1.5rem 1rem;
+    }
+    
+    .workspace {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+    
+    textarea {
+        height: 180px;
+    }
+
+    .modal-content {
+        margin: 1rem;
+    }
+
+    .tone-selector {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}
