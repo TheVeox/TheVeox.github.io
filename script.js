@@ -1,4 +1,247 @@
-document.addEventListener('DOMContentLoaded', () => {
+// ElevenLabs TTS WebSocket utility
+const speech = {
+    ws: null,
+    context: null,
+    sourceNode: null,
+    speaking: false,
+    audioQueue: [],
+    currentButton: null,
+    abortController: null,
+    voiceSettings: {
+        stability: 0.5,
+        similarity_boost: 0.75,
+        style: 0,
+        use_speaker_boost: true
+    },
+
+    async fetchVoices() {
+        const apiKey = localStorage.getItem('eleven-api-key');
+        if (!apiKey) {
+            alert('Please enter your ElevenLabs API key');
+            return [];
+        }
+
+        try {
+            const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+                headers: {
+                    'xi-api-key': apiKey
+                }
+            });
+            
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem('eleven-api-key');
+                    alert('Invalid or expired API key. Please enter a valid ElevenLabs API key.');
+                    document.getElementById('api-key-modal').classList.remove('hidden');
+                    document.getElementById('eleven-key-input').focus();
+                    throw new Error('Invalid API key');
+                }
+                throw new Error(`Failed to fetch voices (${response.status})`);
+            }
+            
+            const data = await response.json();
+            const voices = data.voices || [];
+            
+            if (voices.length === 0) {
+                alert('No voices found in your ElevenLabs account. Please make sure you have at least one voice available.');
+            }
+            
+            return voices;
+        } catch (error) {
+            console.error('Error fetching voices:', error);
+            if (!error.message.includes('Invalid API key')) {
+                alert('Failed to load voices. Please check your internet connection and try again.');
+            }
+            return [];
+        }
+    },
+
+    async speak(text, voiceId, button, speed = 1.0) {
+        if (this.speaking) {
+            this.stop();
+            return;
+        }
+
+        const apiKey = localStorage.getItem('eleven-api-key');
+        if (!apiKey) {
+            alert('Please set your ElevenLabs API key');
+            return;
+        }
+
+        try {
+            // Initialize or resume audio context
+            if (!this.context) {
+                this.context = new (window.AudioContext || window.webkitAudioContext)();
+            } else if (this.context.state === 'suspended') {
+                await this.context.resume();
+            }
+
+            this.speaking = true;
+            this.currentButton = button;
+            button.classList.add('speaking');
+            this.audioQueue = [];
+        } catch (error) {
+            console.error('Failed to initialize audio context:', error);
+            alert('Failed to initialize audio. Please ensure audio playback is allowed.');
+            this.stop();
+            return;
+        }
+
+        try {
+            // Use the streaming REST API endpoint instead of WebSocket
+            const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voiceId + '/stream', {
+                method: 'POST',
+                headers: {
+                    'xi-api-key': apiKey,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    text,
+                    model_id: 'eleven_multilingual_v2',
+                    voice_settings: {
+                        ...this.voiceSettings,
+                        speed: parseFloat(speed)
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                if (response.status === 401) {
+                    localStorage.removeItem('eleven-api-key');
+                    document.getElementById('api-key-modal').classList.remove('hidden');
+                    document.getElementById('eleven-key-input').focus();
+                    throw new Error('Invalid or expired API key. Please enter a new API key.');
+                } else if (response.status === 429) {
+                    throw new Error('Rate limit exceeded. Please try again later.');
+                }
+                throw new Error(`Failed to generate speech (${response.status})`);
+            }
+
+            // Process the audio stream with proper error handling and cleanup
+            try {
+                // Show loading state immediately
+                button.disabled = true;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+                const reader = response.body.getReader();
+                let audioChunks = [];
+
+                // Store AbortController for cleanup
+                this.abortController = new AbortController();
+                const signal = this.abortController.signal;
+
+                try {
+                    while (!signal.aborted) {
+                        const {done, value} = await reader.read();
+                        if (done) break;
+                        audioChunks.push(value);
+                    }
+                } catch (error) {
+                    reader.cancel();
+                    throw error;
+                } finally {
+                    if (signal.aborted) {
+                        reader.cancel();
+                        throw new Error('Audio processing was cancelled');
+                    }
+                }
+
+                // Concatenate all audio chunks
+                const totalLength = audioChunks.reduce((acc, chunk) => acc + chunk.length, 0);
+                const audioArray = new Uint8Array(totalLength);
+                let offset = 0;
+                for (const chunk of audioChunks) {
+                    audioArray.set(chunk, offset);
+                    offset += chunk.length;
+                }
+
+                // Decode the complete audio data
+                try {
+                    const audioBuffer = await this.context.decodeAudioData(audioArray.buffer);
+                    
+                    // Only proceed if we're still in speaking mode (user hasn't stopped)
+                    if (this.speaking) {
+                        this.audioQueue.push(audioBuffer);
+                        if (this.audioQueue.length === 1) {
+                            this.playNextInQueue();
+                        }
+                    }
+                } catch (decodeError) {
+                    console.error('Error decoding audio:', decodeError);
+                    throw new Error('Failed to decode audio data');
+                }
+            } catch (error) {
+                console.error('Error processing audio stream:', error);
+                this.stop();
+                alert('Failed to process audio. Please try again.');
+            }
+            
+
+            
+        } catch (error) {
+            console.error('Speech error:', error);
+            this.stop();
+        }
+    },
+
+    async base64ToArrayBuffer(base64) {
+        const response = await fetch(`data:audio/mpeg;base64,${base64}`);
+        const buffer = await response.arrayBuffer();
+        return buffer;
+    },
+
+    playNextInQueue() {
+        if (!this.speaking || this.audioQueue.length === 0) {
+            this.stop();
+            return;
+        }
+
+        const buffer = this.audioQueue.shift();
+        const source = this.context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.context.destination);
+        
+        source.onended = () => {
+            if (this.audioQueue.length > 0) {
+                this.playNextInQueue();
+            } else {
+                this.stop();
+            }
+        };
+        
+        source.start(0);
+        this.sourceNode = source;
+    },
+
+    stop() {
+        // Cancel any ongoing stream processing
+        if (this.abortController) {
+            this.abortController.abort();
+            this.abortController = null;
+        }
+
+        if (this.sourceNode) {
+            try {
+                this.sourceNode.stop();
+            } catch (e) {
+                // Ignore errors if audio was already stopped
+            }
+        }
+        
+        this.speaking = false;
+        this.audioQueue = [];
+        this.sourceNode = null;
+        
+        if (this.currentButton) {
+            this.currentButton.classList.remove('speaking');
+            this.currentButton.disabled = false;
+            this.currentButton.innerHTML = '<i class="fas fa-volume-up"></i>';
+            this.currentButton = null;
+        }
+    }
+};
+
+document.addEventListener('DOMContentLoaded', async () => {
     const elements = {
         sourceLang: document.getElementById('source-lang'),
         targetLang: document.getElementById('target-lang'),
@@ -8,8 +251,6 @@ document.addEventListener('DOMContentLoaded', () => {
         swapBtn: document.getElementById('swap-languages'),
         loader: document.getElementById('loader'),
         apiKeyModal: document.getElementById('api-key-modal'),
-        apiKeyInput: document.getElementById('api-key-input'),
-        showKeyBtn: document.getElementById('show-key'),
         saveKeyBtn: document.getElementById('save-key'),
         changeKeyBtn: document.getElementById('change-key'),
         detectedInfo: document.getElementById('detected-info'),
@@ -17,7 +258,17 @@ document.addEventListener('DOMContentLoaded', () => {
         detectedConfidence: document.getElementById('detected-confidence'),
         formality: document.getElementById('formality'),
         professional: document.getElementById('professional'),
-        tone: document.getElementById('tone')
+        tone: document.getElementById('tone'),
+        speakSource: document.getElementById('speak-source'),
+        speakOutput: document.getElementById('speak-output'),
+        sourceVoice: document.getElementById('source-voice'),
+        outputVoice: document.getElementById('output-voice'),
+        sourceSpeed: document.getElementById('source-speed'),
+        outputSpeed: document.getElementById('output-speed'),
+        geminiKeyInput: document.getElementById('gemini-key-input'),
+        elevenKeyInput: document.getElementById('eleven-key-input'),
+        showGeminiKey: document.getElementById('show-gemini-key'),
+        showElevenKey: document.getElementById('show-eleven-key')
     };
 
     // Full language list
@@ -89,13 +340,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (lastTone) elements.tone.value = lastTone;
     }
 
-    function checkApiKey() {
-        const apiKey = localStorage.getItem('gemini-api-key');
-        if (!apiKey) {
+    function checkApiKeys() {
+        const geminiKey = localStorage.getItem('gemini-api-key');
+        const elevenKey = localStorage.getItem('eleven-api-key');
+        if (!geminiKey || !elevenKey) {
             elements.apiKeyModal.classList.remove('hidden');
-            elements.apiKeyInput.focus();
+            if (!geminiKey) {
+                elements.geminiKeyInput.focus();
+            } else {
+                elements.elevenKeyInput.focus();
+            }
         }
-        return apiKey;
+        return { geminiKey, elevenKey };
     }
 
     function updateTextDirection(text, lang, element) {
@@ -151,8 +407,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const text = elements.sourceText.value.trim();
         if (!text) return;
 
-        const apiKey = checkApiKey();
-        if (!apiKey) return;
+        const { geminiKey } = checkApiKeys();
+        if (!geminiKey) return;
 
         elements.loader.classList.remove('hidden');
         elements.translateBtn.disabled = true;
@@ -174,7 +430,11 @@ DETECTED: [language] ([number]%)
 TRANSLATION:
 [translation]
 
-Otherwise, provide only the translation.
+Otherwise, provide only the translation. and only translation do not out put
+DETECTED: [language] ([number]%)
+TRANSLATION:
+[translation]
+
 
 CORE OPERATIONAL FRAMEWORK:
 
@@ -220,7 +480,7 @@ STYLE & REGISTER EXPERTISE:
 - Formality levels: formal, semi-formal, casual, intimate, colloquial
 - Professional registers: academic, legal, medical, technical, business, diplomatic
 - Creative styles: poetic, literary, artistic, humorous, satirical
-- Emotional tones: friendly, enthusiastic, serious, respectful, authoritative
+- Emotional tones: friendly, conversational,enthusiastic, serious, respectful, authoritative
 - Cultural adaptations: native-like, culturally adapted, literal, foreignizing
 - Age-appropriate language: child-friendly, teen-appropriate, adult-oriented
 - Domain-specific terminology and jargon
@@ -287,7 +547,7 @@ ${text}`;
             };
 
             const response = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${geminiKey}`,
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -313,10 +573,11 @@ ${text}`;
                         updateDetectedInfo(match[1], match[2]);
                         const translationStart = lines.indexOf('TRANSLATION:');
                         if (translationStart !== -1) {
+                            // Only show the translation part, skipping the detection info
                             const translatedText = lines.slice(translationStart + 1).join('\n').trim();
                             elements.outputText.value = translatedText;
                         } else {
-                            elements.outputText.value = lines.slice(1).join('\n').trim();
+                            elements.outputText.value = translation;
                         }
                     } else {
                         elements.outputText.value = translation;
@@ -338,9 +599,10 @@ ${text}`;
         } catch (error) {
             console.error('Translation error:', error);
             elements.outputText.value = `Error: ${error.message}`;
-            if (error.message.includes('API key')) {
+            if (error.message.includes('API key') || error.message.includes('Failed to fetch voices')) {
                 localStorage.removeItem('gemini-api-key');
-                checkApiKey();
+                localStorage.removeItem('eleven-api-key');
+                checkApiKeys();
             }
         } finally {
             elements.loader.classList.add('hidden');
@@ -349,25 +611,95 @@ ${text}`;
     }
 
     // Event Listeners
-    elements.saveKeyBtn.addEventListener('click', () => {
-        const apiKey = elements.apiKeyInput.value.trim();
-        if (apiKey) {
-            localStorage.setItem('gemini-api-key', apiKey);
-            elements.apiKeyModal.classList.add('hidden');
+    // Initialize voice selection
+    const voices = await speech.fetchVoices();
+    voices.forEach(voice => {
+        const option = document.createElement('option');
+        option.value = voice.voice_id;
+        option.textContent = `${voice.name} (${voice.labels.accent || 'No accent'})`;
+        elements.sourceVoice.appendChild(option.cloneNode(true));
+        elements.outputVoice.appendChild(option);
+    });
+
+    // Restore voice selections
+    const lastSourceVoice = localStorage.getItem('last-source-voice');
+    const lastOutputVoice = localStorage.getItem('last-output-voice');
+    if (lastSourceVoice) elements.sourceVoice.value = lastSourceVoice;
+    if (lastOutputVoice) elements.outputVoice.value = lastOutputVoice;
+
+    elements.saveKeyBtn.addEventListener('click', async () => {
+        const geminiKey = elements.geminiKeyInput.value.trim();
+        const elevenKey = elements.elevenKeyInput.value.trim();
+        
+        if (!geminiKey || !elevenKey) {
+            alert('Please enter both API keys');
+            return;
+        }
+
+        // Clear existing voices
+        elements.sourceVoice.innerHTML = '<option value="">Loading voices...</option>';
+        elements.outputVoice.innerHTML = '<option value="">Loading voices...</option>';
+        
+        try {
+            // Save API keys
+            localStorage.setItem('gemini-api-key', geminiKey);
+            localStorage.setItem('eleven-api-key', elevenKey);
+            
+            // Test ElevenLabs API key by fetching voices
+            const voices = await speech.fetchVoices();
+            
+            if (voices.length > 0) {
+                elements.apiKeyModal.classList.add('hidden');
+                
+                // Refresh voice lists
+                elements.sourceVoice.innerHTML = '<option value="">Select voice</option>';
+                elements.outputVoice.innerHTML = '<option value="">Select voice</option>';
+                
+                voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.voice_id;
+                    option.textContent = `${voice.name} (${voice.labels.accent || 'No accent'})`;
+                    elements.sourceVoice.appendChild(option.cloneNode(true));
+                    elements.outputVoice.appendChild(option);
+                });
+
+                // Restore previously selected voices if they still exist
+                const lastSourceVoice = localStorage.getItem('last-source-voice');
+                const lastOutputVoice = localStorage.getItem('last-output-voice');
+                
+                if (lastSourceVoice && voices.some(v => v.voice_id === lastSourceVoice)) {
+                    elements.sourceVoice.value = lastSourceVoice;
+                }
+                
+                if (lastOutputVoice && voices.some(v => v.voice_id === lastOutputVoice)) {
+                    elements.outputVoice.value = lastOutputVoice;
+                }
+            }
+        } catch (error) {
+            console.error('Error saving API keys:', error);
+            elements.sourceVoice.innerHTML = '<option value="">Select voice</option>';
+            elements.outputVoice.innerHTML = '<option value="">Select voice</option>';
+            alert('Failed to verify API keys. Please check your keys and try again.');
         }
     });
 
-    elements.showKeyBtn.addEventListener('click', () => {
-        const type = elements.apiKeyInput.type === 'password' ? 'text' : 'password';
-        elements.apiKeyInput.type = type;
-        elements.showKeyBtn.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+    elements.showGeminiKey.addEventListener('click', () => {
+        const type = elements.geminiKeyInput.type === 'password' ? 'text' : 'password';
+        elements.geminiKeyInput.type = type;
+        elements.showGeminiKey.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
+    });
+
+    elements.showElevenKey.addEventListener('click', () => {
+        const type = elements.elevenKeyInput.type === 'password' ? 'text' : 'password';
+        elements.elevenKeyInput.type = type;
+        elements.showElevenKey.innerHTML = type === 'password' ? '<i class="fas fa-eye"></i>' : '<i class="fas fa-eye-slash"></i>';
     });
 
     elements.changeKeyBtn.addEventListener('click', () => {
-        localStorage.removeItem('gemini-api-key');
         elements.apiKeyModal.classList.remove('hidden');
-        elements.apiKeyInput.value = '';
-        elements.apiKeyInput.focus();
+        elements.geminiKeyInput.value = '';
+        elements.elevenKeyInput.value = '';
+        elements.geminiKeyInput.focus();
     });
 
     // Update text direction handlers
@@ -406,16 +738,72 @@ ${text}`;
         }
     });
 
-    elements.apiKeyInput.addEventListener('keydown', e => {
+    elements.geminiKeyInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            elements.elevenKeyInput.focus();
+        }
+    });
+
+    elements.elevenKeyInput.addEventListener('keydown', e => {
         if (e.key === 'Enter') {
             e.preventDefault();
             elements.saveKeyBtn.click();
         }
     });
 
+    // Save voice selections when changed
+    elements.sourceVoice.addEventListener('change', () => {
+        localStorage.setItem('last-source-voice', elements.sourceVoice.value);
+    });
+
+    elements.outputVoice.addEventListener('change', () => {
+        localStorage.setItem('last-output-voice', elements.outputVoice.value);
+    });
+
+    // Speech button event listeners
+    elements.speakSource.addEventListener('click', () => {
+        const text = elements.sourceText.value.trim();
+        const voiceId = elements.sourceVoice.value;
+        if (text && voiceId) {
+            speech.speak(text, voiceId, elements.speakSource, elements.sourceSpeed.value);
+        } else if (!voiceId) {
+            alert('Please select a voice first');
+        }
+    });
+
+    elements.speakOutput.addEventListener('click', () => {
+        const text = elements.outputText.value.trim();
+        const voiceId = elements.outputVoice.value;
+        if (text && voiceId) {
+            speech.speak(text, voiceId, elements.speakOutput, elements.outputSpeed.value);
+        } else if (!voiceId) {
+            alert('Please select a voice first');
+        }
+    });
+
+    // Stop speech when changing text
+    elements.sourceText.addEventListener('input', () => {
+        if (speech.speaking) {
+            speech.stop();
+        }
+    });
+
+    elements.outputText.addEventListener('input', () => {
+        if (speech.speaking) {
+            speech.stop();
+        }
+    });
+
+    // Initialize API keys if they exist
+    const geminiKey = localStorage.getItem('gemini-api-key');
+    const elevenKey = localStorage.getItem('eleven-api-key');
+    if (geminiKey) elements.geminiKeyInput.value = geminiKey;
+    if (elevenKey) elements.elevenKeyInput.value = elevenKey;
+
     // Initialize
     populateLanguages();
-    checkApiKey();
+    checkApiKeys();
     
     // Set initial text directions
     updateTextDirection(elements.sourceText.value, elements.sourceLang.value, elements.sourceText);
