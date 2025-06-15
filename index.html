@@ -14,11 +14,17 @@
 <body>
     <div class="api-key-modal" id="api-key-modal">
         <div class="modal-content">
-            <h2>Enter API Key</h2>
-            <p>Enter your Gemini API key to start translating</p>
+            <h2>Enter API Keys</h2>
+            <p>Enter your API keys to start using the translator</p>
             <div class="input-group">
-                <input type="password" id="api-key-input" placeholder="Your Gemini API key">
-                <button id="show-key"><i class="fas fa-eye"></i></button>
+                <label for="gemini-key-input">Gemini API Key (for translation)</label>
+                <input type="password" id="gemini-key-input" placeholder="Your Gemini API key">
+                <button id="show-gemini-key" class="show-key"><i class="fas fa-eye"></i></button>
+            </div>
+            <div class="input-group">
+                <label for="eleven-key-input">ElevenLabs API Key (for text-to-speech)</label>
+                <input type="password" id="eleven-key-input" placeholder="Your ElevenLabs API key">
+                <button id="show-eleven-key" class="show-key"><i class="fas fa-eye"></i></button>
             </div>
             <div class="modal-actions">
                 <button id="save-key">Start Translating</button>
@@ -34,7 +40,24 @@
                         <option value="auto">Auto-detect</option>
                     </select>
                 </div>
-                <textarea id="source-text" placeholder="Enter text" class="font-auto"></textarea>
+                <div class="text-container">
+                    <textarea id="source-text" placeholder="Enter text" class="font-auto"></textarea>
+                    <div class="voice-controls">
+                        <select id="source-voice" class="voice-select">
+                            <option value="">Select voice</option>
+                        </select>
+                        <div class="voice-settings">
+                            <div class="setting">
+                                <label>Speed</label>
+                                <input type="range" id="source-speed" min="0.7" max="1.2" step="0.1" value="1.0">
+                            </div>
+                        </div>
+                        <button id="speak-source" class="speak-btn" title="Speak text">
+                            <i class="fas fa-volume-up"></i>
+                            Listen
+                        </button>
+                    </div>
+                </div>
                 <div class="detected-info hidden" id="detected-info">
                     <span>Detected: <strong id="detected-lang"></strong></span>
                     <span>Confidence: <strong id="detected-confidence"></strong></span>
@@ -63,6 +86,7 @@
                     </select>
                     <select id="tone">
                         <option value="" selected>Tone & Style</option>
+                        <option value="conversational">Conversational</option>
                         <option value="friendly">Friendly</option>
                         <option value="enthusiastic">Enthusiastic</option>
                         <option value="serious">Serious</option>
@@ -72,7 +96,24 @@
                         <option value="humorous">Humorous</option>
                     </select>
                 </div>
-                <textarea id="output-text" readonly placeholder="Translation" class="font-auto"></textarea>
+                <div class="text-container">
+                    <textarea id="output-text" readonly placeholder="Translation" class="font-auto"></textarea>
+                    <div class="voice-controls">
+                        <select id="output-voice" class="voice-select">
+                            <option value="">Select voice</option>
+                        </select>
+                        <div class="voice-settings">
+                            <div class="setting">
+                                <label>Speed</label>
+                                <input type="range" id="output-speed" min="0.7" max="1.2" step="0.1" value="1.0">
+                            </div>
+                        </div>
+                        <button id="speak-output" class="speak-btn" title="Speak translation">
+                            <i class="fas fa-volume-up"></i>
+                            Listen
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
