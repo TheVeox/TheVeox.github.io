@@ -480,7 +480,7 @@ STYLE & REGISTER EXPERTISE:
 - Formality levels: formal, semi-formal, casual, intimate, colloquial
 - Professional registers: academic, legal, medical, technical, business, diplomatic
 - Creative styles: poetic, literary, artistic, humorous, satirical
-- Emotional tones: friendly, conversational,enthusiastic, serious, respectful, authoritative
+- Emotional tones: friendly, conversational, Gen z, enthusiastic, serious, respectful, authoritative
 - Cultural adaptations: native-like, culturally adapted, literal, foreignizing
 - Age-appropriate language: child-friendly, teen-appropriate, adult-oriented
 - Domain-specific terminology and jargon
