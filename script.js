@@ -478,7 +478,7 @@ CULTURAL & CONTEXTUAL INTELLIGENCE:
 
 STYLE & REGISTER EXPERTISE:
 - Formality levels: formal, semi-formal, casual, intimate, colloquial
-- Professional registers: academic, legal, medical, technical, business, diplomatic
+- Professional registers: academic, legal, medical, technical, business, diplomatic or explain the thing you get
 - Creative styles: poetic, literary, artistic, humorous, satirical
 - Emotional tones: friendly, conversational, Gen z, enthusiastic, serious, respectful, authoritative
 - Cultural adaptations: native-like, culturally adapted, literal, foreignizing
