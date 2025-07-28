@@ -3,15 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Translator</title>
+    <title>HyperTranslate AI</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div class="background-glow"></div>
+
     <div class="api-key-modal" id="api-key-modal">
         <div class="modal-content">
             <h2>Enter API Keys</h2>
@@ -33,6 +35,11 @@
     </div>
 
     <div class="container">
+        <header class="app-header">
+            <h1>HyperTranslate</h1>
+            <p>Real-time translation powered by AI</p>
+        </header>
+
         <div class="workspace">
             <div class="translation-panel">
                 <div class="lang-selector">
@@ -120,9 +127,9 @@
         </div>
 
         <div class="controls">
-            <button id="swap-languages"><i class="fas fa-exchange-alt"></i></button>
+            <button id="swap-languages" title="Swap Languages"><i class="fas fa-exchange-alt"></i></button>
             <button id="translate">Translate</button>
-            <button id="change-key" class="icon-btn"><i class="fas fa-key"></i></button>
+            <button id="change-key" class="icon-btn" title="Change API Keys"><i class="fas fa-key"></i></button>
         </div>
         
         <div id="loader" class="loader hidden"></div>
