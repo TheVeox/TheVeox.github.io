@@ -97,7 +97,7 @@ const speech = {
                 },
                 body: JSON.stringify({
                     text,
-                    model_id: 'eleven_multilingual_v2',
+                    model_id: 'eleven_ttv_v3',
                     voice_settings: {
                         ...this.voiceSettings,
                         speed: parseFloat(speed)
